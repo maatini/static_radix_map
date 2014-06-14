@@ -68,6 +68,7 @@
 #define STATIC_RADIX_MAP_HPP
 
 #include <cstdlib> // for size_t
+#include <stdexcept>
 #include <utility>
 #include <vector>
 

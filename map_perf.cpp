@@ -30,9 +30,11 @@ typedef std::vector<std::string> VS;
 using namespace static_map_stuff;
 
 void perf_startup() {
+#ifdef WIN32
    SetThreadAffinityMask(GetCurrentThread(), 1);
    SetThreadIdealProcessor(GetCurrentThread(), 0);
    Sleep(1);
+#endif   
 }
 
 class MongoTimer {
