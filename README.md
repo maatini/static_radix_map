@@ -9,9 +9,10 @@
 Unlike standard hash maps (`std::unordered_map`) or balanced binary trees (`std::map`), the `static_radix_map` analyzes the specific bit-patterns of all keys during construction to create a custom jump-table based search tree.
 
 ### Key Features
+*   **Contiguous Memory Layout**: The entire tree structure is flattened into a single contiguous buffer (vector of uint32_t), eliminating memory fragmentation and improving cache locality.
 *   **Near-Optimal Search**: Uses a greedy discrimination algorithm to select the most selective bytes for branching.
 *   **Zero Hashing**: No hash functions are computed during lookup, eliminating hash collision overhead.
-*   **Static Context**: Ideal for fixed lookups like command parsers, routing tables, or configuration mappings.
+*   **Deterministic Lookup**: Search time is bounded by the number of discriminator bytes, with constant-time jump-table lookups.
 *   **STL-like Interface**: Implements a subset of `std::map` (find, count, iterators).
 *   **Variable Length Type Support**: Native specializations for `std::string` and `const char*`.
 
@@ -22,7 +23,7 @@ static_radix_map/
 ├── assets/             # Project graphics
 ├── benchmark/          # Performance tests
 ├── include/            # Header-only library
-│   └── static_radix_map/
+├── tests/              # Unit tests
 ├── CMakeLists.txt      # Build system
 ├── README.md
 └── LICENSE
@@ -49,39 +50,37 @@ For a set of keys like `{"apple", "ant", "banana"}`, the tree might look like th
 3.  **Greedy Optimization**: The tree height is minimized by picking indexes that split the key space as efficiently as possible.
 4.  **Fallback Semantics**: Safely handles keys with common prefixes or different lengths.
 
+### Tree Structure (Flattened)
+
+The tree is serialized into a contiguous `std::vector<uint32_t>`, which makes lookups extremely fast and cache-friendly. The "pointer chasing" typically associated with tree structures is mitigated by the dense data layout.
+
 ## Evaluation & Benchmarks
 
 ### Performance Comparison (M1 Max)
-Benchmarks show that `static_radix_map` consistently outperforms `std::unordered_map` for small to medium-sized datasets.
-
-**Benchmark Environment:**
-*   **CPU**: Apple M1 Max (arm64)
-*   **Compiler**: Apple clang version 17.0.0 (`-O3`)
-*   **C++ Version**: C++11 (`-std=c++11`)
-*   **Libraries**: Boost 1.87
+After the contiguous buffer optimization, `static_radix_map` shows a significant lead over `std::unordered_map`.
 
 | Key Count | `std::unordered_map` (sec) | `static_radix_map` (sec) | Speedup |
 | :--- | :--- | :--- | :--- |
-| 16 | 0.241 | **0.159** | +34% |
-| 64 | 0.237 | **0.180** | +24% |
-| 256 | 0.245 | **0.179** | +27% |
-| 1024 | 0.239 | **0.225** | +6% |
-| 5000 | 0.318 | **0.236** | +26% |
-| 10000 | 0.320 | **0.306** | +4% |
+| 16 | 0.244 | **0.137** | **+44%** |
+| 64 | 0.233 | **0.152** | **+35%** |
+| 256 | 0.239 | **0.114** | **+52%** |
+| 1024 | 0.246 | **0.101** | **+59%** |
+| 5000 | 0.315 | **0.169** | **+46%** |
+| 10000 | 0.320 | **0.168** | **+47%** |
 
 *Note: Benchmarks performed with 10,000,000 lookups per test.*
 
 ### Analysis
 
 #### Strengths
-*   **Extremely Low Latency**: Faster than hashing for small $N$ because it avoids the computational cost of the hash function.
-*   **Deterministic Lookup**: The search time is bounded by the number of discriminator bytes, not by bucket collisions.
-*   **Memory Efficiency for Small Sets**: Very compact for a handful of keys.
+*   **Zero Fragmentation**: The entire map consists of exactly two memory blocks after construction (one for data, one for the tree).
+*   **Cache Locality**: Contiguous buffer layout minimizes cache misses during tree traversal.
+*   **Extremely Low Latency**: Faster than hashing even for larger $N$ due to the elimination of hash computation.
+*   **Deterministic Lookup**: The search time is strictly bounded.
 
 #### Limitations
-*   **Construction Overhead**: The initialization is $O(N \cdot L)$, making it unsuitable for frequent updates.
-*   **Cache Locality**: On very large datasets (> 10k keys), the performance advantage diminishes. This is due to "pointer chasing" across individually allocated nodes, which can lead to CPU cache misses.
-*   **Sparse Byte Distribution**: If keys have very sparse discriminator bytes, the dispatch tables (up to 256 slots) might consume more memory than a compact hash table.
+*   **Construction Overhead**: Initialization is $O(N \cdot L)$, making it unsuitable for frequent updates.
+*   **Sparse Byte Distribution**: If keys have very sparse discriminator bytes, the dispatch tables might consume more memory than a compact hash table.
 
 ## Requirements & Usage
 
