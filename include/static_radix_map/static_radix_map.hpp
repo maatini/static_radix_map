@@ -262,26 +262,26 @@ private:
     const char *key = to_const_char(key_param);
     std::size_t len = to_size(key_param);
 
+    const uint32_t *tree = treeBuffer_.data();
     uint32_t curr = rootOffset_;
-    while (true) {
-      if (curr >= treeBuffer_.size()) {
-        return 0; // Should not happen
-      }
 
-      uint32_t ndx = treeBuffer_[curr];
-      uint32_t slots_info = treeBuffer_[curr + 1];
+    while (true) {
+      uint32_t ndx = tree[curr];
+      uint32_t slots_info = tree[curr + 1];
       uint32_t min = slots_info & 0xFF;
       uint32_t max = (slots_info >> 8) & 0xFF;
 
       uint32_t child_val = 0;
 
       if (ndx < len) {
-        uint8_t byte = static_cast<uint8_t>(key[ndx]);
-        if (byte >= min && byte <= max) {
-          child_val = treeBuffer_[curr + 2 + (byte - min)];
+        // Optimized range check: (byte - min) <= (max - min) handles both >=
+        // min and <= max because of unsigned underflow if byte < min.
+        uint32_t diff = static_cast<uint8_t>(key[ndx]) - min;
+        if (diff <= (max - min)) {
+          child_val = tree[curr + 2 + diff];
         }
       } else {
-        child_val = treeBuffer_[curr + 2 + (max - min + 1)];
+        child_val = tree[curr + 2 + (max - min + 1)];
       }
 
       if (child_val == 0) {

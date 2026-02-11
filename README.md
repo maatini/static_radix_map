@@ -61,12 +61,12 @@ After the contiguous buffer optimization, `static_radix_map` shows a significant
 
 | Key Count | `std::unordered_map` (sec) | `static_radix_map` (sec) | Speedup | Checksum |
 | :--- | :--- | :--- | :--- | :--- |
-| 16 | 0.2416 | **0.1554** | **+35%** | Match |
-| 64 | 0.2384 | **0.1784** | **+25%** | Match |
-| 256 | 0.2478 | **0.1787** | **+28%** | Match |
-| 1024 | 0.2474 | **0.2050** | **+17%** | Match |
-| 5000 | 0.3118 | **0.2093** | **+33%** | Match |
-| 10000 | 0.3202 | **0.2661** | **+17%** | Match |
+| 16 | 0.2672 | **0.1504** | **+44%** | Match |
+| 64 | 0.2417 | **0.1761** | **+27%** | Match |
+| 256 | 0.2432 | **0.1796** | **+26%** | Match |
+| 1024 | 0.2397 | **0.2049** | **+15%** | Match |
+| 5000 | 0.3068 | **0.2099** | **+32%** | Match |
+| 10000 | 0.3227 | **0.2607** | **+19%** | Match |
 
 *Note: Benchmarks performed with 10,000,000 lookups per test, averaged over 100 test cycles (1B total search operations).*
 
