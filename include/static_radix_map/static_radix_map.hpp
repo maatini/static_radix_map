@@ -300,7 +300,7 @@ private:
         return 0;
       } else {
         // Node
-        curr = child_val;
+        curr = child_val >> 1;
       }
     }
   }
@@ -312,6 +312,9 @@ private:
     for (iterator iter = start; iter != end; ++iter) {
       keyValues_.push_back(value_type(iter->first, iter->second));
     }
+
+    treeBuffer_.clear();
+    treeBuffer_.push_back(0); // Sentinel to ensure all valid offsets are > 0
 
     if (sz > 0) {
       // initial selection are all keys for root node

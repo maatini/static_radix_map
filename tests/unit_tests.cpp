@@ -1,6 +1,8 @@
 #include <cassert>
 #include <iostream>
 #include <map>
+#include <random>
+#include <set>
 #include <static_radix_map/static_radix_map.hpp>
 #include <string>
 #include <vector>
@@ -99,12 +101,51 @@ void test_empty_map() {
   std::cout << "PASSED" << std::endl;
 }
 
+void test_random_stress() {
+  std::cout << "Running test_random_stress..." << std::endl;
+  const int n = 5000;
+  std::vector<std::string> keys;
+  std::set<std::string> key_set;
+  std::default_random_engine generator(42);
+  std::uniform_int_distribution<int> len_dist(1, 20);
+  std::uniform_int_distribution<int> char_dist('A', 'Z');
+
+  while (key_set.size() < n) {
+    int len = len_dist(generator);
+    std::string s;
+    for (int j = 0; j < len; ++j)
+      s += (char)char_dist(generator);
+    key_set.insert(s);
+  }
+  keys.assign(key_set.begin(), key_set.end());
+
+  std::map<std::string, int> data;
+  for (int i = 0; i < n; ++i)
+    data[keys[i]] = i + 1;
+
+  static_radix_map<std::string, int> smap(data);
+  for (auto const &pair : data) {
+    if (smap.count(pair.first) == 0) {
+      std::cerr << "FAILURE: Key not found: " << pair.first << std::endl;
+      assert(false);
+    }
+    if (smap.value(pair.first) != pair.second) {
+      std::cerr << "FAILURE: Wrong value for " << pair.first << ": got "
+                << smap.value(pair.first) << " expected " << pair.second
+                << std::endl;
+      assert(false);
+    }
+  }
+  std::cout << "PASSED" << std::endl;
+}
+
 int main() {
   test_basic_string_map();
   test_prefix_relationships();
   test_fixed_length_keys();
   test_regression_ujzre();
   test_empty_map();
+  test_random_stress();
   std::cout << "\nAll tests passed!" << std::endl;
   return 0;
 }

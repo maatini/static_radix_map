@@ -436,8 +436,9 @@ public:
         child_indices.push_back(0); // Empty slot
       } else if (nodes_[i]->isLink_) {
         // Recursively flatten the child node
-        child_indices.push_back(
-            nodes_[i]->data_.link_->flatten(buffer, base_ptr));
+        uint32_t offset = nodes_[i]->data_.link_->flatten(buffer, base_ptr);
+        // Even numbers are Node offsets (shifted), Odd numbers are Leaves.
+        child_indices.push_back(offset << 1);
       } else {
         // Leaf: Store index + 1 shifted (to distinguish from offsets)
         // Format: (index << 1) | 1. 0 is reserved for NULL.
