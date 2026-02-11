@@ -57,18 +57,18 @@ The tree is serialized into a contiguous `std::vector<uint32_t>`, which makes lo
 ## Evaluation & Benchmarks
 
 ### Performance Comparison (M1 Max)
-After the contiguous buffer optimization, `static_radix_map` shows a significant lead over `std::unordered_map`. Results are averaged over 100 runs.
+After the contiguous buffer optimization, `static_radix_map` shows a significant lead over `std::unordered_map`. Results are averaged over 10 runs.
 
 | Key Count | `std::unordered_map` (sec) | `static_radix_map` (sec) | Speedup | Checksum |
 | :--- | :--- | :--- | :--- | :--- |
-| 16 | 0.2672 | **0.1504** | **+44%** | Match |
-| 64 | 0.2417 | **0.1761** | **+27%** | Match |
-| 256 | 0.2432 | **0.1796** | **+26%** | Match |
-| 1024 | 0.2397 | **0.2049** | **+15%** | Match |
-| 5000 | 0.3068 | **0.2099** | **+32%** | Match |
-| 10000 | 0.3227 | **0.2607** | **+19%** | Match |
+| 16 | 0.2470 | **0.1535** | **+38%** | Match |
+| 64 | 0.2374 | **0.1733** | **+27%** | Match |
+| 256 | 0.2460 | **0.1739** | **+29%** | Match |
+| 1024 | 0.2454 | **0.2187** | **+11%** | Match |
+| 5000 | 0.3128 | **0.2125** | **+32%** | Match |
+| 10000 | 0.3164 | **0.2628** | **+17%** | Match |
 
-*Note: Benchmarks performed with 10,000,000 lookups per test, averaged over 100 test cycles (1B total search operations).*
+*Note: Benchmarks performed with 10,000,000 lookups per test, averaged over 10 test cycles (100M total search operations).*
 
 ### Integrity Verified
 The implementation includes a robust tagging system for the contiguous memory buffer. Each lookup is verified against standard implementations to ensure 100% correctness and deterministic results.

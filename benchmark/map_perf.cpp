@@ -70,7 +70,7 @@ template <class M>
 double map_perf_test(M &the_map, const std::vector<std::string> &keys,
                      const std::vector<size_t> &indices,
                      const std::string &caption) {
-  const int loops = 5;
+  const int loops = 10;
   int dummy_sum = 0;
 
   // Warm-up to fill caches and stabilize CPU clock
