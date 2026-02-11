@@ -21,6 +21,13 @@ target_link_libraries(static_radix_map INTERFACE Boost::boost)
 add_executable(map_perf benchmark/map_perf.cpp)
 target_link_libraries(map_perf PRIVATE static_radix_map Boost::boost)
 
+# Unit Tests
+add_executable(unit_tests tests/unit_tests.cpp)
+target_link_libraries(unit_tests PRIVATE static_radix_map Boost::boost)
+
+enable_testing()
+add_test(NAME unit_tests COMMAND unit_tests)
+
 # Install rules (Optional but good practice)
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS static_radix_map EXPORT static_radix_mapTargets)
