@@ -1,13 +1,11 @@
-cmake_minimum_required(VERSION 3.10)
-project(static_radix_map VERSION 1.1 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.14)
+project(static_radix_map VERSION 2.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find Boost
-find_package(Boost REQUIRED)
-
-# Interface library (Header-only)
+# Interface library (Header-only, no external dependencies)
 add_library(static_radix_map INTERFACE)
 
 target_include_directories(static_radix_map INTERFACE
@@ -15,19 +13,25 @@ target_include_directories(static_radix_map INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(static_radix_map INTERFACE Boost::boost)
-
 # Benchmark
 add_executable(map_perf benchmark/map_perf.cpp)
-target_link_libraries(map_perf PRIVATE static_radix_map Boost::boost)
+target_link_libraries(map_perf PRIVATE static_radix_map)
+target_compile_options(map_perf PRIVATE -O2)
 
 # Unit Tests
 add_executable(unit_tests tests/unit_tests.cpp)
-target_link_libraries(unit_tests PRIVATE static_radix_map Boost::boost)
+target_link_libraries(unit_tests PRIVATE static_radix_map)
 
 enable_testing()
 add_test(NAME unit_tests COMMAND unit_tests)
 
-# Install rules (Optional but good practice)
+# Optional: Sanitizer support
+option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if(ENABLE_SANITIZERS)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
+# Install rules
 install(DIRECTORY include/ DESTINATION include)
 install(TARGETS static_radix_map EXPORT static_radix_mapTargets)

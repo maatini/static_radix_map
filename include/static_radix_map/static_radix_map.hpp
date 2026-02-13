@@ -34,8 +34,7 @@
 //       The implementation is based on radix trees and uses the knowledge of
 //       all keys to make a (near optimal) multiway tree. Some performance
 //       measurements suggest significant improvements over the hash-container
-//       boost::unordered_map and a free patricia tree implementation. The
-//       improvement is particularly large over the hash algorithm for small
+//       std::unordered_map. The improvement is particularly large for small
 //       sizes < 1000 and/or querying absent keys.
 //       Of course the advantages over the hash algorithm diminish as the key
 //       count grows because of the O(log n) characteristic of the tree based
@@ -56,82 +55,59 @@
 //       equality predicate is memory equivalence and implemented with
 //       std::memcmp.
 //
+// Dependencies: C++17 standard library only (no external dependencies)
 //
-// Open questions:
-//       - the implemented greedy approach may be suboptimal
-//
-// Libraries: boost 1.41 (shared_ptr, tuple, noncopyable, type_traits, mpl,
-// counting_iterator),
-//       prior boost versions >= 1.36 should also work
 //----------------------------------------------------------------------------
 
 #ifndef STATIC_RADIX_MAP_HPP
 
 #define STATIC_RADIX_MAP_HPP
 
-#include <cstdlib> // for size_t
+#include <cstdint>
+#include <cstdlib>
+#include <numeric>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
-#include "boost/iterator/counting_iterator.hpp"
-#include "boost/shared_ptr.hpp"
-
 #include "static_radix_map_node.hpp"
 
-namespace static_map_stuff {
+namespace radix {
 
 template <typename Key, typename Mapped, bool queryOnlyExistingKeys = false>
 class static_radix_map {
 public:
-  typedef Key key_type;
-  typedef Mapped mapped_type;
-  typedef std::size_t size_type;
-  typedef static_radix_map<Key, Mapped, queryOnlyExistingKeys> map_type;
-  typedef
-      typename detail::static_radix_map_node<Key, Mapped, queryOnlyExistingKeys>
-          node_type;
-  typedef typename node_type::value_type value_type;
+  using key_type = Key;
+  using mapped_type = Mapped;
+  using size_type = std::size_t;
+  using map_type = static_radix_map<Key, Mapped, queryOnlyExistingKeys>;
+  using node_type =
+      detail::static_radix_map_node<Key, Mapped, queryOnlyExistingKeys>;
+  using value_type = typename node_type::value_type;
 
-  typedef typename std::vector<value_type>::iterator iterator;
-  typedef typename std::vector<value_type>::const_iterator const_iterator;
+  using iterator = typename std::vector<value_type>::iterator;
+  using const_iterator = typename std::vector<value_type>::const_iterator;
 
-  typedef typename std::vector<value_type>::reverse_iterator reverse_iterator;
-  typedef typename std::vector<value_type>::const_reverse_iterator
-      const_reverse_iterator;
+  using reverse_iterator = typename std::vector<value_type>::reverse_iterator;
+  using const_reverse_iterator =
+      typename std::vector<value_type>::const_reverse_iterator;
 
-  template <class Map> static_radix_map(const Map &m) {
+  template <class Map> explicit static_radix_map(const Map &m) {
     init_map(m.begin(), m.end());
   }
 
-  template <typename iterator> static_radix_map(iterator start, iterator end) {
+  template <typename InputIterator>
+  static_radix_map(InputIterator start, InputIterator end) {
     init_map(start, end);
   }
 
-  // returns Mapped() for non existing keys
-  Mapped value(const Key &key) const {
-    const value_type *p = lookup(key);
-    return p == 0 ? Mapped() : p->value();
-  }
+  // Move support
+  static_radix_map(static_radix_map &&) noexcept = default;
+  static_radix_map &operator=(static_radix_map &&) noexcept = default;
 
-  // throws runtime_error for non existing keys
-  Mapped &operator[](const Key &key) {
-    value_type *p = const_cast<value_type *>(lookup(key));
-    if (p != 0)
-      return p->value();
-    else
-      throw std::runtime_error("static_radix_map::value: key does not exists!");
-  }
-
-  const Mapped &operator[](const Key &key) const {
-    const value_type *p = lookup(key);
-    if (p != 0)
-      return p->value();
-    else
-      throw std::runtime_error("static_radix_map::value: key does not exists!");
-  }
-
-  map_type &operator=(const map_type &other) {
+  // Copy support
+  static_radix_map(const static_radix_map &) = default;
+  static_radix_map &operator=(const static_radix_map &other) {
     if (this != &other) {
       map_type tmp(other);
       this->swap(tmp);
@@ -139,112 +115,140 @@ public:
     return *this;
   }
 
+  // returns Mapped() for non existing keys
+  Mapped value(const Key &key) const noexcept {
+    const value_type *p = lookup(key);
+    return p == nullptr ? Mapped() : p->value();
+  }
+
+  // throws runtime_error for non existing keys
+  Mapped &operator[](const Key &key) {
+    value_type *p = const_cast<value_type *>(lookup(key));
+    if (p != nullptr)
+      return p->value();
+    else
+      throw std::runtime_error("static_radix_map::value: key does not exists!");
+  }
+
+  const Mapped &operator[](const Key &key) const {
+    const value_type *p = lookup(key);
+    if (p != nullptr)
+      return p->value();
+    else
+      throw std::runtime_error("static_radix_map::value: key does not exists!");
+  }
+
   template <bool query_only_existing_keys>
   bool operator==(const static_radix_map<Key, Mapped, query_only_existing_keys>
-                      &other) const {
+                      &other) const noexcept {
     return keyValues_ == other.keyValues_;
   }
 
   template <bool query_only_existing_keys>
   bool operator!=(const static_radix_map<Key, Mapped, query_only_existing_keys>
-                      &other) const {
+                      &other) const noexcept {
     return keyValues_ != other.keyValues_;
   }
 
   template <bool query_only_existing_keys>
   bool operator<(const static_radix_map<Key, Mapped, query_only_existing_keys>
-                     &other) const {
+                     &other) const noexcept {
     return keyValues_ < other.keyValues_;
   }
 
   template <bool query_only_existing_keys>
   bool operator>(const static_radix_map<Key, Mapped, query_only_existing_keys>
-                     &other) const {
+                     &other) const noexcept {
     return keyValues_ > other.keyValues_;
   }
 
   template <bool query_only_existing_keys>
   bool operator<=(const static_radix_map<Key, Mapped, query_only_existing_keys>
-                      &other) const {
+                      &other) const noexcept {
     return keyValues_ <= other.keyValues_;
   }
 
   template <bool query_only_existing_keys>
   bool operator>=(const static_radix_map<Key, Mapped, query_only_existing_keys>
-                      &other) const {
+                      &other) const noexcept {
     return keyValues_ >= other.keyValues_;
   }
 
   // count returns 1 for existing keys otherwise 0
-  std::size_t count(const Key &key) const { return lookup(key) != 0; }
+  std::size_t count(const Key &key) const noexcept {
+    return lookup(key) != nullptr;
+  }
 
   // iterators are realized via delegation
-  iterator begin() { return keyValues_.begin(); }
+  iterator begin() noexcept { return keyValues_.begin(); }
+  iterator end() noexcept { return keyValues_.end(); }
 
-  iterator end() { return keyValues_.end(); }
+  const_iterator begin() const noexcept { return keyValues_.begin(); }
+  const_iterator end() const noexcept { return keyValues_.end(); }
 
-  const_iterator begin() const { return keyValues_.begin(); }
+  const_iterator cbegin() const noexcept { return keyValues_.cbegin(); }
+  const_iterator cend() const noexcept { return keyValues_.cend(); }
 
-  const_iterator end() const { return keyValues_.end(); }
+  reverse_iterator rbegin() noexcept { return keyValues_.rbegin(); }
+  reverse_iterator rend() noexcept { return keyValues_.rend(); }
 
-  reverse_iterator rbegin() { return keyValues_.rbegin(); }
+  const_reverse_iterator rbegin() const noexcept { return keyValues_.rbegin(); }
+  const_reverse_iterator rend() const noexcept { return keyValues_.rend(); }
 
-  reverse_iterator rend() { return keyValues_.rend(); }
+  const_reverse_iterator crbegin() const noexcept {
+    return keyValues_.crbegin();
+  }
+  const_reverse_iterator crend() const noexcept { return keyValues_.crend(); }
 
-  const_reverse_iterator rbegin() const { return keyValues_.rbegin(); }
-
-  const_reverse_iterator rend() const { return keyValues_.rend(); }
-
-  const_iterator find(const key_type &key) const {
+  const_iterator find(const key_type &key) const noexcept {
     const value_type *p = lookup(key);
-    if (p != 0)
+    if (p != nullptr)
       return begin() + (p - &keyValues_[0]);
     else
       return end();
   }
 
-  iterator find(const key_type &key) {
+  iterator find(const key_type &key) noexcept {
     const value_type *p = lookup(key);
-    if (p != 0)
+    if (p != nullptr)
       return begin() + (p - &keyValues_[0]);
     else
       return end();
   }
 
-  void swap(map_type &other) {
-    // never throws an exception
+  void swap(map_type &other) noexcept {
     std::swap(keyValues_, other.keyValues_);
     std::swap(treeBuffer_, other.treeBuffer_);
     std::swap(rootOffset_, other.rootOffset_);
   }
 
-  bool empty() const { return keyValues_.empty(); }
+  bool empty() const noexcept { return keyValues_.empty(); }
 
-  std::pair<iterator, iterator> equal_range(const key_type &key) {
+  std::pair<iterator, iterator> equal_range(const key_type &key) noexcept {
     iterator iter = find(key);
     return (iter != end()) ? std::make_pair(iter, iter + 1)
                            : std::make_pair(iter, iter);
   }
 
   std::pair<const_iterator, const_iterator>
-  equal_range(const key_type &key) const {
+  equal_range(const key_type &key) const noexcept {
     const_iterator iter = find(key);
     return (iter != end()) ? std::make_pair(iter, iter + 1)
                            : std::make_pair(iter, iter);
   }
 
-  void clear() {
+  void clear() noexcept {
     keyValues_.clear();
     treeBuffer_.clear();
     rootOffset_ = 0;
   }
 
-  size_type size() const { return keyValues_.size(); }
+  size_type size() const noexcept { return keyValues_.size(); }
 
-  size_type max_size() const { return keyValues_.max_size(); }
+  size_type max_size() const noexcept { return keyValues_.max_size(); }
 
   // used memory in bytes
-  std::size_t used_mem() const {
+  std::size_t used_mem() const noexcept {
     return sizeof(*this) + keyValues_.capacity() * sizeof(value_type) +
            treeBuffer_.capacity() * sizeof(uint32_t);
   }
@@ -252,11 +256,11 @@ public:
 private:
   std::vector<value_type> keyValues_;
   std::vector<uint32_t> treeBuffer_;
-  uint32_t rootOffset_;
+  uint32_t rootOffset_ = 0;
 
-  const value_type *lookup(const Key &key_param) const {
+  const value_type *lookup(const Key &key_param) const noexcept {
     if (treeBuffer_.empty())
-      return 0;
+      return nullptr;
 
     using namespace detail;
     const char *key = to_const_char(key_param);
@@ -285,7 +289,7 @@ private:
       }
 
       if (child_val == 0) {
-        return 0; // Empty slot
+        return nullptr; // Empty slot
       }
 
       if (child_val & 1) {
@@ -297,7 +301,7 @@ private:
             std::memcmp(key, to_const_char(candidate.first), len) == 0) {
           return &candidate;
         }
-        return 0;
+        return nullptr;
       } else {
         // Node
         curr = child_val >> 1;
@@ -305,11 +309,12 @@ private:
     }
   }
 
-  template <typename iterator> void init_map(iterator start, iterator end) {
+  template <typename InputIterator>
+  void init_map(InputIterator start, InputIterator end) {
     // pre-process data
     std::size_t sz = std::distance(start, end);
     keyValues_.reserve(sz);
-    for (iterator iter = start; iter != end; ++iter) {
+    for (auto iter = start; iter != end; ++iter) {
       keyValues_.push_back(value_type(iter->first, iter->second));
     }
 
@@ -318,15 +323,14 @@ private:
 
     if (sz > 0) {
       // initial selection are all keys for root node
-      std::vector<std::size_t> selection(
-          boost::counting_iterator<std::size_t>(0),
-          boost::counting_iterator<std::size_t>(sz));
+      std::vector<std::size_t> selection(sz);
+      std::iota(selection.begin(), selection.end(), 0);
       node_type nodeTree(keyValues_, selection);
       rootOffset_ = nodeTree.flatten(treeBuffer_, &keyValues_[0]);
     }
   }
 };
 
-} // namespace static_map_stuff
+} // namespace radix
 
 #endif

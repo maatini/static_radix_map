@@ -9,12 +9,14 @@
 Unlike standard hash maps (`std::unordered_map`) or balanced binary trees (`std::map`), the `static_radix_map` analyzes the specific bit-patterns of all keys during construction to create a custom jump-table based search tree.
 
 ### Key Features
+*   **Zero Dependencies**: Header-only, C++17 standard library only — no Boost or other external libraries required.
 *   **Contiguous Memory Layout**: The entire tree structure is flattened into a single contiguous buffer (vector of uint32_t), eliminating memory fragmentation and improving cache locality.
 *   **Near-Optimal Search**: Uses a greedy discrimination algorithm to select the most selective bytes for branching.
 *   **Zero Hashing**: No hash functions are computed during lookup, eliminating hash collision overhead.
 *   **Deterministic Lookup**: Search time is bounded by the number of discriminator bytes, with constant-time jump-table lookups.
-*   **STL-like Interface**: Implements a subset of `std::map` (find, count, iterators).
+*   **STL-like Interface**: Implements a subset of `std::map` (find, count, iterators, equal_range).
 *   **Variable Length Type Support**: Native specializations for `std::string` and `const char*`.
+*   **Move Semantics**: Full move support for efficient transfers.
 
 ## Project Structure
 
@@ -23,8 +25,8 @@ static_radix_map/
 ├── assets/             # Project graphics
 ├── benchmark/          # Performance tests
 ├── include/            # Header-only library
-├── tests/              # Unit tests
-├── CMakeLists.txt      # Build system
+├── tests/              # Unit tests (18 test cases)
+├── CMakeLists.txt      # Build system (C++17)
 ├── README.md
 └── LICENSE
 ```
@@ -43,8 +45,6 @@ The lookup is an iterative process that jumps through levels of the tree using s
 
 For a set of keys like `{"apple", "ant", "banana"}`, the tree might look like this (simplified representation):
 
-<!-- ![Tree Structure](assets/tree_structure.png) -->
-
 1.  **Preprocessing**: During construction, the algorithm identifies the "best" byte index (discriminator) that maximizes selectivity among the current subset of keys.
 2.  **Multiway Branching**: For each node, a dispatch table is created based on the identified discriminator byte.
 3.  **Greedy Optimization**: The tree height is minimized by picking indexes that split the key space as efficiently as possible.
@@ -57,21 +57,32 @@ The tree is serialized into a contiguous `std::vector<uint32_t>`, which makes lo
 ## Evaluation & Benchmarks
 
 ### Performance Comparison (M1 Max)
-After the contiguous buffer optimization, `static_radix_map` shows a significant lead over `std::unordered_map`. Results are averaged over 10 runs.
+`static_radix_map` consistently outperforms both `std::unordered_map` and `std::map`. Results are averaged over 10 runs of 10M lookups each.
 
-| Key Count | `std::unordered_map` (sec) | `static_radix_map` (sec) | Speedup | Checksum |
-| :--- | :--- | :--- | :--- | :--- |
-| 16 | 0.2470 | **0.1535** | **+38%** | Match |
-| 64 | 0.2374 | **0.1733** | **+27%** | Match |
-| 256 | 0.2460 | **0.1739** | **+29%** | Match |
-| 1024 | 0.2454 | **0.2187** | **+11%** | Match |
-| 5000 | 0.3128 | **0.2125** | **+32%** | Match |
-| 10000 | 0.3164 | **0.2628** | **+17%** | Match |
+| Key Count | `std::unordered_map` (sec) | `std::map` (sec) | `static_radix_map` (sec) | vs unordered | vs map |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 16 | 0.2435 | 0.4205 | **0.1553** | **+36%** | **+63%** |
+| 64 | 0.2343 | 0.6338 | **0.1830** | **+22%** | **+71%** |
+| 256 | 0.2371 | 0.8311 | **0.1769** | **+25%** | **+79%** |
+| 1024 | 0.2376 | 1.1429 | **0.2054** | **+14%** | **+82%** |
+| 5000 | 0.3138 | 1.8297 | **0.2139** | **+32%** | **+88%** |
+| 10000 | 0.3199 | 2.0961 | **0.2573** | **+20%** | **+88%** |
 
-*Note: Benchmarks performed with 10,000,000 lookups per test, averaged over 10 test cycles (100M total search operations).*
+**Overall**: `static_radix_map` won **6/6** size categories.
+
+### Absent-Key Rejection Performance
+A particular strength is the rejection speed for absent (non-existing) keys:
+
+| Key Count | `std::unordered_map` (sec) | `std::map` (sec) | `static_radix_map` (sec) |
+| :--- | :--- | :--- | :--- |
+| 16 | 0.0218 | 0.0348 | **0.0033** |
+| 256 | 0.0208 | 0.0993 | **0.0018** |
+| 5000 | 0.0277 | 0.2018 | **0.0019** |
+
+*Absent-key rejection is ~7–15× faster than `std::unordered_map`.*
 
 ### Integrity Verified
-The implementation includes a robust tagging system for the contiguous memory buffer. Each lookup is verified against standard implementations to ensure 100% correctness and deterministic results.
+The implementation includes a robust tagging system for the contiguous memory buffer. All lookup checksums match across implementations, ensuring 100% correctness and deterministic results.
 
 ### Analysis
 
@@ -80,6 +91,7 @@ The implementation includes a robust tagging system for the contiguous memory bu
 *   **Cache Locality**: Contiguous buffer layout minimizes cache misses during tree traversal.
 *   **Extremely Low Latency**: Faster than hashing even for larger $N$ due to the elimination of hash computation.
 *   **Deterministic Lookup**: The search time is strictly bounded.
+*   **Outstanding Absent-Key Performance**: Non-existing keys are rejected ~10× faster than hash-based lookups.
 
 #### Limitations
 *   **Construction Overhead**: Initialization is $O(N \cdot L)$, making it unsuitable for frequent updates.
@@ -88,7 +100,8 @@ The implementation includes a robust tagging system for the contiguous memory bu
 ## Requirements & Usage
 
 ### Requirements
-*   **Boost Libraries**: Depends on Boost (shared_ptr, tuple, mpl, type_traits). Tested with Boost >= 1.36.
+*   **C++17 compiler** (GCC ≥ 7, Clang ≥ 5, MSVC ≥ 19.14)
+*   No external dependencies — standard library only.
 *   **Key Property**: Keys must have the representational equality property (memcmp-safe).
 
 ### Integration via CMake
@@ -109,11 +122,26 @@ int main() {
     data["apple"] = 1;
     data["banana"] = 2;
 
-    static_map_stuff::static_radix_map<std::string, int> smap(data);
+    radix::static_radix_map<std::string, int> smap(data);
 
     int val = smap.value("apple"); // Very fast lookup
     return 0;
 }
+```
+
+### Building & Testing
+```bash
+mkdir build && cd build
+cmake ..
+cmake --build .
+ctest --output-on-failure
+
+# Run benchmark
+./map_perf
+
+# Build with sanitizers
+cmake .. -DENABLE_SANITIZERS=ON
+cmake --build .
 ```
 
 ## License
