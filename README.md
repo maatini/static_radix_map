@@ -43,7 +43,7 @@ The lookup is an iterative process that jumps through levels of the tree using s
 
 For a set of keys like `{"apple", "ant", "banana"}`, the tree might look like this (simplified representation):
 
-![Tree Structure](assets/tree_structure.png)
+<!-- ![Tree Structure](assets/tree_structure.png) -->
 
 1.  **Preprocessing**: During construction, the algorithm identifies the "best" byte index (discriminator) that maximizes selectivity among the current subset of keys.
 2.  **Multiway Branching**: For each node, a dispatch table is created based on the identified discriminator byte.
